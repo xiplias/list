@@ -28,22 +28,40 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 */
+
+/*
+
+Changes by Anders Hansen
+
+2 May 2013
+Adding delay and delay_search function and use on line #94
+
+*/
+
+var delay = (function(){
+  var timer = 0;
+  return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+  };
+})();
+
 (function( window, undefined ) {
 "use strict";
 var document = window.document,
-	h;
+    h;
 
 var List = function(id, options, values) {
     var self = this,
-		templater,
-		init,
-		initialItems,
-		Item,
-		Templater,
-		sortButtons,
-		events = {
-		    'updated': []
-		};
+        templater,
+        init,
+        initialItems,
+        Item,
+        Templater,
+        sortButtons,
+        events = {
+            'updated': []
+        };
     this.listContainer = (typeof(id) == 'string') ? document.getElementById(id) : id;
     // Check if the container exists. If not return instead of breaking the javascript
     if (!this.listContainer)
@@ -78,7 +96,7 @@ var List = function(id, options, values) {
         },
         callbacks: function(options) {
             self.list = h.getByClass(options.listClass, self.listContainer, true);
-            h.addEvent(h.getByClass(options.searchClass, self.listContainer), 'keyup', self.search);
+            h.addEvent(h.getByClass(options.searchClass, self.listContainer), 'keyup', self.delayed_search);
             sortButtons = h.getByClass(options.sortClass, self.listContainer);
             h.addEvent(sortButtons, 'click', self.sort);
         },
@@ -194,11 +212,11 @@ var List = function(id, options, values) {
         }
     };
 
-	this.show = function(i, page) {
-		this.i = i;
-		this.page = page;
-		self.update();
-	};
+    this.show = function(i, page) {
+        this.i = i;
+        this.page = page;
+        self.update();
+    };
 
     /* Removes object from list.
     * Loops through the list and removes objects where
@@ -291,6 +309,14 @@ var List = function(id, options, values) {
     * The columns parameter defines if all values should be included in the search,
     * defaults to undefined which means "all".
     */
+    this.delayed_search = function(searchString, columns) {
+    
+      delay(function() {
+        self.search(searchString, columns);
+      }, 500)
+    };
+
+
     this.search = function(searchString, columns) {
         self.i = 1; // Reset paging
         var matching = [],
@@ -412,7 +438,7 @@ var List = function(id, options, values) {
 
     this.update = function() {
         var is = self.items,
-			il = is.length;
+            il = is.length;
 
         self.visibleItems = [];
         self.matchingItems = [];
@@ -422,12 +448,12 @@ var List = function(id, options, values) {
                 is[i].show();
                 self.visibleItems.push(is[i]);
                 self.matchingItems.push(is[i]);
-			} else if (is[i].matching()) {
+            } else if (is[i].matching()) {
                 self.matchingItems.push(is[i]);
                 is[i].hide();
-			} else {
+            } else {
                 is[i].hide();
-			}
+            }
         }
         trigger('updated');
     };
@@ -473,7 +499,7 @@ var List = function(id, options, values) {
         this.matching = function() {
             return (
                 (self.filtered && self.searched && item.found && item.filtered) ||
-               	(self.filtered && !self.searched && item.filtered) ||
+                (self.filtered && !self.searched && item.filtered) ||
                 (!self.filtered && self.searched && item.found) ||
                 (!self.filtered && !self.searched)
             );
@@ -773,3 +799,87 @@ h = {
 window.List = List;
 window.ListJsHelpers = h;
 })(window);
+
+List.prototype.plugins.filtering = function(locals, options) {
+    var list = this;
+    var container = jQuery("#" + list.listContainer.id);
+    var filters = {};
+    var init = function() {
+        options = options || {};
+        options.allLabel = options.allLabel || 'All';
+
+        container.find('[data-filter="dropdown"]').each(function(){
+            var filter = jQuery(this);
+            var filterElement = jQuery('<select></select>');
+            filter.append(filterElement);
+            var property = filter.attr("data-filter-property");
+            var values = get.values(property).unique();
+            var item = jQuery("<option>" + options.allLabel + "</option>");
+            item.data('value', '');
+            filterElement.append(item);
+
+            for (var i = values.length - 1; i >= 0; i--) {
+                var value = values[i];
+                if (value !== '') {
+                    var item = jQuery("<option>"+value+"</option>");
+                    // Using data instead of value to prevent character conflicts
+                    item.data('value', value)
+                    filterElement.append(item);
+                }
+            };
+            filterElement.change(function() {
+                filters[property] = filterElement.find('option:selected').data('value').split(',');
+                updateFilters();
+            });
+        });
+
+        container.find('[data-filter-set]').live('click', function(){
+            var filter = jQuery(this);
+            var value = filter.attr('data-filter-set');
+            var property = filter.parents('[data-filter-property]').attr('data-filter-property');
+            if (value == "") {
+                delete filters[property];
+            } else {
+                filters[property] = value.split(",");
+            }
+            updateFilters();
+        });
+    };
+
+    var updateFilters = function() {
+        list.filter(function(item) {
+            var matching = true;
+            jQuery.each(filters, function(property, values){
+                // Reset the filter if nothing is specified
+                if (values.length == 0 || values[0] == '') {
+                    return;
+                }
+                if (values.indexOf(item.values()[property]) == -1) {
+                    matching = false;
+                }
+            });
+            return matching;
+        });
+    }
+
+    var get = {
+        values: function(property){
+            var values = [];
+            for (var i = list.items.length - 1; i >= 0; i--) {
+                var item = list.items[i];
+                values.push(item.values()[property]);
+            };
+            return values;
+        }
+    }
+
+    Array.prototype.unique = function() {
+        var o = {}, i, l = this.length, r = [];
+        for(i=0; i<l;i+=1) o[this[i]] = this[i];
+        for(i in o) r.push(o[i]);
+        return r;
+    };
+
+    init();
+    return this;
+};
