@@ -31,10 +31,15 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 /*
 
-Changes by Anders Hansen
+Changes by Anders Hansen (xiplias)
 
 2 May 2013
 Adding delay and delay_search function and use on line #94
+
+4 Juni 2013
+Reduce delay timer to 300 ms (line #321)
+Adding support for image on render (line #591)
+
 
 */
 
@@ -310,10 +315,10 @@ var List = function(id, options, values) {
     * defaults to undefined which means "all".
     */
     this.delayed_search = function(searchString, columns) {
-    
+
       delay(function() {
         self.search(searchString, columns);
-      }, 500)
+      }, 300)
     };
 
 
@@ -583,7 +588,11 @@ List.prototype.templateEngines.standard = function(list, settings) {
                 // TODO speed up if possible
                 var elm = h.getByClass(v, item.elm, true);
                 if (elm) {
+                  if(elm.tagName == "IMG") {
+                    elm.setAttribute("src", values[v]);
+                  } else {
                     elm.innerHTML = values[v];
+                  }
                 }
             }
         }
