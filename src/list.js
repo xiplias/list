@@ -40,6 +40,10 @@ Adding delay and delay_search function and use on line #94
 Reduce delay timer to 300 ms (line #321)
 Adding support for image on render (line #591)
 
+13 Juni 2013
+Adding fix for empty values when sorting. This is
+a problem when you put an image into th which should have
+another click event
 
 */
 
@@ -305,8 +309,11 @@ var List = function(id, options, values) {
                 return h.sorter.alphanum(a.values()[value].toLowerCase(), b.values()[value].toLowerCase(), isAsc);
             };
         }
-        self.items.sort(options.sortFunction);
-        self.update();
+
+        if(value != null) {
+          self.items.sort(options.sortFunction);
+          self.update();
+        }
     };
 
     /*
