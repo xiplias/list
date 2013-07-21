@@ -593,12 +593,15 @@ List.prototype.templateEngines.standard = function(list, settings) {
         for(var v in values) {
             if (values.hasOwnProperty(v)) {
                 // TODO speed up if possible
-                var elm = h.getByClass(v, item.elm, true);
-                if (elm) {
-                  if(elm.tagName == "IMG") {
-                    elm.setAttribute("src", values[v]);
-                  } else {
-                    elm.innerHTML = values[v];
+                var elms = h.getByClass(v, item.elm);
+
+                for (var i = 0, len = elms.length; i < len; i++) {
+                  if (elms[i]) {
+                    if(elms[i].tagName == "IMG") {
+                      elms[i].setAttribute("src", values[v]);
+                    } else {
+                      elms[i].innerHTML = values[v];
+                    }
                   }
                 }
             }
